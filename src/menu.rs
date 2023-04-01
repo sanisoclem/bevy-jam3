@@ -13,55 +13,38 @@ enum MenuState {
 #[derive(Resource)]
 struct MenuNextState<T>(T);
 
-pub struct MenuPlugin<T> {
-  menu_state: T,
-  next_state: T,
+pub trait MenuExtensions {
+  fn add_main_menu<T: States>(&mut self, show_on_state: T, next_state: T) -> &mut Self;
 }
 
-impl<T> Plugin for MenuPlugin<T>
-where
-  T: Clone + Copy + Eq + PartialEq + States,
-{
-  fn build(&self, app: &mut App) {
-    app
+impl MenuExtensions for App {
+  fn add_main_menu<T: States>(&mut self, show_on_state: T, next_state: T) -> &mut Self {
+    self
       .add_state::<MenuState>()
-      .insert_resource(MenuNextState(self.next_state))
-      .add_system(menu_setup.in_schedule(OnEnter(self.menu_state)))
+      .insert_resource(MenuNextState(next_state))
+      .add_system(menu_setup.in_schedule(OnEnter(show_on_state.clone())))
       .add_systems((
         main_menu_setup.in_schedule(OnEnter(MenuState::Main)),
         despawn_screen::<OnMainMenuScreen>.in_schedule(OnExit(MenuState::Main)),
       ))
-      .add_systems((Self::menu_action, button_system).in_set(OnUpdate(self.menu_state)));
+      .add_systems((menu_action::<T>, button_system).in_set(OnUpdate(show_on_state.clone())))
   }
 }
-impl<T> MenuPlugin<T>
-where
-  T: Clone + Copy + Eq + PartialEq + States,
-{
-  pub fn new(menu_state: T, next_state: T) -> Self {
-    Self {
-      menu_state,
-      next_state,
-    }
-  }
-  fn menu_action(
-    interaction_query: Query<
-      (&Interaction, &MenuButtonAction),
-      (Changed<Interaction>, With<Button>),
-    >,
-    mut app_exit_events: EventWriter<AppExit>,
-    mut menu_state: ResMut<NextState<MenuState>>,
-    mut game_state: ResMut<NextState<T>>,
-    next_state: Res<MenuNextState<T>>,
-  ) {
-    for (interaction, menu_button_action) in &interaction_query {
-      if *interaction == Interaction::Clicked {
-        match menu_button_action {
-          MenuButtonAction::Quit => app_exit_events.send(AppExit),
-          MenuButtonAction::Play => {
-            game_state.set(next_state.0);
-            menu_state.set(MenuState::Disabled);
-          }
+
+fn menu_action<T: States>(
+  interaction_query: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
+  mut app_exit_events: EventWriter<AppExit>,
+  mut menu_state: ResMut<NextState<MenuState>>,
+  mut game_state: ResMut<NextState<T>>,
+  next_state: Res<MenuNextState<T>>,
+) {
+  for (interaction, menu_button_action) in &interaction_query {
+    if *interaction == Interaction::Clicked {
+      match menu_button_action {
+        MenuButtonAction::Quit => app_exit_events.send(AppExit),
+        MenuButtonAction::Play => {
+          game_state.set(next_state.0.clone());
+          menu_state.set(MenuState::Disabled);
         }
       }
     }

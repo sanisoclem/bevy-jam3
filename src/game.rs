@@ -4,46 +4,30 @@ use utils::despawn_screen;
 #[derive(Resource)]
 struct GameNextState<T>(T);
 
-pub struct GamePlugin<T> {
-  game_state: T,
-  next_state: T,
+pub trait GameExtensions {
+  fn jam<T: States>(&mut self, game_state: T, exit_state: T) -> &mut Self;
 }
 
-impl<T> Plugin for GamePlugin<T>
-where
-  T: Clone + Copy + Eq + PartialEq + States,
-{
-  fn build(&self, app: &mut App) {
-    app
-      .insert_resource(GameNextState(self.next_state))
+impl GameExtensions for App {
+  fn jam<T: States>(&mut self, game_state: T, exit_state: T) -> &mut Self {
+    self
+      .insert_resource(GameNextState(exit_state))
       .add_systems((
-        game_setup.in_schedule(OnEnter(self.game_state)),
-        Self::game.in_set(OnUpdate(self.game_state)),
-        despawn_screen::<OnGameScreen>.in_schedule(OnExit(self.game_state)),
-      ));
+        game_setup.in_schedule(OnEnter(game_state.clone())),
+        game::<T>.in_set(OnUpdate(game_state.clone())),
+        despawn_screen::<OnGameScreen>.in_schedule(OnExit(game_state.clone())),
+      ))
   }
 }
 
-impl<T> GamePlugin<T>
-where
-  T: Clone + Copy + Eq + PartialEq + States,
-{
-  pub fn new(game_state: T, next_state: T) -> Self {
-    Self {
-      game_state,
-      next_state,
-    }
-  }
-
-  fn game(
-    time: Res<Time>,
-    next_state: Res<GameNextState<T>>,
-    mut game_state: ResMut<NextState<T>>,
-    mut timer: ResMut<GameTimer>,
-  ) {
-    if timer.tick(time.delta()).finished() {
-      game_state.set(next_state.0);
-    }
+fn game<T: States>(
+  time: Res<Time>,
+  next_state: Res<GameNextState<T>>,
+  mut game_state: ResMut<NextState<T>>,
+  mut timer: ResMut<GameTimer>,
+) {
+  if timer.tick(time.delta()).finished() {
+    game_state.set(next_state.0.clone());
   }
 }
 

@@ -1,4 +1,7 @@
 use bevy::prelude::*;
+use game::GameExtensions;
+use menu::MenuExtensions;
+use splash::SplashExtensions;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 enum GameState {
@@ -17,12 +20,9 @@ fn main() {
     .add_plugins(DefaultPlugins)
     .add_startup_system(setup)
     .add_state::<GameState>()
-    .add_plugin(splash::SplashPlugin::new(
-      GameState::Splash,
-      GameState::Menu,
-    ))
-    .add_plugin(menu::MenuPlugin::new(GameState::Menu, GameState::Game))
-    .add_plugin(game::GamePlugin::new(GameState::Game, GameState::Menu))
+    .add_splash_screen(GameState::Splash, GameState::Menu)
+    .add_main_menu(GameState::Menu, GameState::Game)
+    .jam(GameState::Game, GameState::Menu)
     .run();
 }
 

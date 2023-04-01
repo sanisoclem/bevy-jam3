@@ -1,43 +1,17 @@
 use bevy::prelude::*;
 use utils::despawn_screen;
 
-pub struct SplashPlugin<T> {
-  splash_state: T,
-  next_state: T,
+pub trait SplashExtensions {
+  fn add_splash_screen<T: States>(&mut self, show_on_state: T, next_state: T) -> &mut Self;
 }
 
-impl<T> Plugin for SplashPlugin<T>
-where
-  T: Clone + Copy + Eq + PartialEq + States,
-{
-  fn build(&self, app: &mut App) {
-    app
-      .insert_resource(SplashNextState(self.next_state))
-      .add_system(splash_setup.in_schedule(OnEnter(self.splash_state)))
-      .add_system(Self::countdown.in_set(OnUpdate(self.splash_state)))
-      .add_system(despawn_screen::<OnSplashScreen>.in_schedule(OnExit(self.splash_state)));
-  }
-}
-impl<T> SplashPlugin<T>
-where
-  T: Clone + Copy + Eq + PartialEq + States,
-{
-  pub fn new(splash_state: T, next_state: T) -> Self {
-    Self {
-      splash_state,
-      next_state,
-    }
-  }
-
-  fn countdown(
-    mut timer: ResMut<SplashTimer>,
-    mut game_state: ResMut<NextState<T>>,
-    next_state: Res<SplashNextState<T>>,
-    time: Res<Time>,
-  ) {
-    if timer.tick(time.delta()).finished() {
-      game_state.set(next_state.0);
-    }
+impl SplashExtensions for App {
+  fn add_splash_screen<T: States>(&mut self, show_on_state: T, next_state: T) -> &mut Self {
+    self
+      .insert_resource(SplashNextState(next_state))
+      .add_system(splash_setup.in_schedule(OnEnter(show_on_state.clone())))
+      .add_system(countdown::<T>.in_set(OnUpdate(show_on_state.clone())))
+      .add_system(despawn_screen::<OnSplashScreen>.in_schedule(OnExit(show_on_state.clone())))
   }
 }
 
@@ -78,4 +52,15 @@ fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
   commands.insert_resource(SplashTimer(Timer::from_seconds(3.0, TimerMode::Once)));
+}
+
+fn countdown<T: States>(
+  mut timer: ResMut<SplashTimer>,
+  mut game_state: ResMut<NextState<T>>,
+  next_state: Res<SplashNextState<T>>,
+  time: Res<Time>,
+) {
+  if timer.tick(time.delta()).finished() {
+    game_state.set(next_state.0.clone());
+  }
 }

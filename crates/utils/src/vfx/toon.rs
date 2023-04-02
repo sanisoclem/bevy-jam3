@@ -25,6 +25,6 @@ impl Material for ToonMaterial {
   }
 
   fn prepass_fragment_shader() -> ShaderRef {
-    "shaders/toon_prepass.wgsl".into()
+    "shaders/custom_prepass.wgsl".into()
   }
 }

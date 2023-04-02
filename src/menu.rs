@@ -3,10 +3,7 @@ use bevy::{
   core_pipeline::prepass::{DepthPrepass, NormalPrepass},
   prelude::*,
 };
-use utils::{
-  despawn_screen,
-  vfx::{PostProcessSettings, ToonMaterial},
-};
+use utils::{despawn_screen, vfx::*};
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
@@ -113,9 +110,17 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     NormalPrepass,
     PostProcessSettings::default(),
   ));
+
   commands.spawn(SceneBundle {
     scene: asset_server.load("ship.gltf#Scene0"),
     ..default()
+  });
+
+  let skybox_handle = asset_server.load("skybox/cubemap.png");
+  commands.insert_resource(Cubemap {
+    is_loaded: false,
+    index: 0,
+    image_handle: skybox_handle,
   });
 
   // Common style for all buttons on the screen
@@ -257,6 +262,7 @@ fn mod_scene(
 ) {
   for (entity, mat_handle, name) in qry.iter() {
     let old_mat = std_materials.get(mat_handle).unwrap();
+    info!("patching {}", name);
 
     let mat = toon_materials.add(ToonMaterial {
       color: old_mat.base_color,

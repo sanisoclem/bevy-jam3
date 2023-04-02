@@ -111,17 +111,20 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     PostProcessSettings::default(),
   ));
 
-  commands.spawn(SceneBundle {
-    scene: asset_server.load("ship.gltf#Scene0"),
-    ..default()
-  });
+  commands.spawn((
+    SceneBundle {
+      scene: asset_server.load("ship.gltf#Scene0"),
+      ..default()
+    },
+    OnMainMenuScreen,
+  ));
 
-  let skybox_handle = asset_server.load("skybox/cubemap.png");
-  commands.insert_resource(Cubemap {
-    is_loaded: false,
-    index: 0,
-    image_handle: skybox_handle,
-  });
+  commands.spawn((
+    Cubemap {
+      image: asset_server.load("skybox/cubemap.png"),
+    },
+    OnMainMenuScreen,
+  ));
 
   // Common style for all buttons on the screen
   let button_style = Style {

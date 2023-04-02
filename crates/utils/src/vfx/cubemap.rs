@@ -18,19 +18,20 @@ use bevy::{
   },
 };
 
-#[derive(Resource)]
+#[derive(Component)]
 pub struct Cubemap {
-  pub is_loaded: bool,
-  pub index: usize,
-  pub image_handle: Handle<Image>,
+  pub image: Handle<Image>,
 }
+
+#[derive(Component)]
+struct CubemapProcessed;
 
 pub struct CubemapPlugin;
 impl Plugin for CubemapPlugin {
   fn build(&self, app: &mut App) {
     app
-      .add_plugin(MaterialPlugin::<CubemapMaterial>{
-        prepass_enabled:false,
+      .add_plugin(MaterialPlugin::<CubemapMaterial> {
+        prepass_enabled: false,
         ..Default::default()
       })
       .add_system(asset_loaded);
@@ -137,15 +138,11 @@ fn asset_loaded(
   mut images: ResMut<Assets<Image>>,
   mut meshes: ResMut<Assets<Mesh>>,
   mut cubemap_materials: ResMut<Assets<CubemapMaterial>>,
-  maybe_cubemap: Option<ResMut<Cubemap>>,
-  cubes: Query<&Handle<CubemapMaterial>>,
+  cubes: Query<(Entity, &Cubemap), Without<CubemapProcessed>>,
 ) {
-  if let Some(mut cubemap) = maybe_cubemap {
-    if !cubemap.is_loaded
-      && asset_server.get_load_state(cubemap.image_handle.clone_weak()) == LoadState::Loaded
-    {
-      info!("cubemap loaded");
-      let mut image = images.get_mut(&cubemap.image_handle).expect("image should be loaded");
+  for (entity, cubemap) in cubes.iter() {
+    if asset_server.get_load_state(cubemap.image.clone_weak()) == LoadState::Loaded {
+      let mut image = images.get_mut(&cubemap.image).unwrap();
       // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,
       // so they appear as one texture. The following code reconfigures the texture as necessary.
       if image.texture_descriptor.array_layer_count() == 1 {
@@ -157,25 +154,16 @@ fn asset_loaded(
           ..default()
         });
       }
-
-      // spawn cube
-      let mut updated = false;
-      for handle in cubes.iter() {
-        if let Some(material) = cubemap_materials.get_mut(handle) {
-          updated = true;
-          material.base_color_texture = Some(cubemap.image_handle.clone_weak());
-        }
-      }
-      if !updated {
-        commands.spawn(MaterialMeshBundle {
+      commands.entity(entity).insert((
+        MaterialMeshBundle {
           mesh: meshes.add(Mesh::from(shape::Cube { size: 10000.0 })),
           material: cubemap_materials.add(CubemapMaterial {
-            base_color_texture: Some(cubemap.image_handle.clone_weak()),
+            base_color_texture: Some(cubemap.image.clone_weak()),
           }),
           ..default()
-        });
-      }
-      cubemap.is_loaded = true;
+        },
+        CubemapProcessed,
+      ));
     }
   }
 }

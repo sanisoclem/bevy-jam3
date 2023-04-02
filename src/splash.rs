@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use utils::despawn_screen;
 
+const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
+
 pub trait SplashExtensions {
   fn add_splash_screen<T: States>(&mut self, show_on_state: T, next_state: T) -> &mut Self;
 }
@@ -26,7 +28,9 @@ struct SplashNextState<T>(T);
 
 fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
   let icon = asset_server.load("splash.png");
+  let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
+  commands.spawn((Camera2dBundle::default(), OnSplashScreen));
   commands
     .spawn((
       NodeBundle {
@@ -49,6 +53,20 @@ fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         image: UiImage::new(icon),
         ..default()
       });
+      parent.spawn(
+        TextBundle::from_section(
+          "Bevy Game Jam #3",
+          TextStyle {
+            font: font.clone(),
+            font_size: 80.0,
+            color: TEXT_COLOR,
+          },
+        )
+        .with_style(Style {
+          margin: UiRect::all(Val::Px(50.0)),
+          ..default()
+        }),
+      );
     });
 
   commands.insert_resource(SplashTimer(Timer::from_seconds(3.0, TimerMode::Once)));

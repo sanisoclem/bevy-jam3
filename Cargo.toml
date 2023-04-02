@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = "0.10"
+bevy = { workspace = true }
 utils = { path = "crates/utils", version = "0.1.0" }
 
 [workspace]
 members = ["crates/*"]
+
+[workspace.dependencies]
+bevy = "0.10"

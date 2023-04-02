@@ -5,3 +5,5 @@ pub fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut comm
     commands.entity(entity).despawn_recursive();
   }
 }
+
+pub mod vfx;

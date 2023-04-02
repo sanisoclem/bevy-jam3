@@ -1,5 +1,12 @@
-use bevy::{app::AppExit, prelude::*};
-use utils::despawn_screen;
+use bevy::{
+  app::AppExit,
+  core_pipeline::prepass::{DepthPrepass, NormalPrepass},
+  prelude::*,
+};
+use utils::{
+  despawn_screen,
+  vfx::{PostProcessSettings, ToonMaterial},
+};
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
@@ -26,6 +33,8 @@ impl MenuExtensions for App {
       .add_systems((
         main_menu_setup.in_schedule(OnEnter(MenuState::Main)),
         despawn_screen::<OnMainMenuScreen>.in_schedule(OnExit(MenuState::Main)),
+        rotate_cam.in_set(OnUpdate(show_on_state.clone())),
+        mod_scene.in_set(OnUpdate(show_on_state.clone())),
       ))
       .add_systems((menu_action::<T>, button_system).in_set(OnUpdate(show_on_state.clone())))
   }
@@ -90,6 +99,25 @@ fn menu_setup(mut menu_state: ResMut<NextState<MenuState>>) {
 
 fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
   let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+  commands.spawn((
+    Camera3dBundle {
+      transform: Transform::from_xyz(-2.0, 4.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+      camera: Camera {
+        order: 0,
+        ..default()
+      },
+      ..default()
+    },
+    OnMainMenuScreen,
+    DepthPrepass,
+    NormalPrepass,
+    PostProcessSettings::default(),
+  ));
+  commands.spawn(SceneBundle {
+    scene: asset_server.load("ship.gltf#Scene0"),
+    ..default()
+  });
+
   // Common style for all buttons on the screen
   let button_style = Style {
     size: Size::new(Val::Px(250.0), Val::Px(65.0)),
@@ -122,8 +150,9 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
       NodeBundle {
         style: Style {
           size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-          align_items: AlignItems::Center,
-          justify_content: JustifyContent::Center,
+          flex_direction: FlexDirection::Column,
+          align_items: AlignItems::Stretch,
+          justify_content: JustifyContent::SpaceBetween,
           ..default()
         },
         ..default()
@@ -134,18 +163,17 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
       parent
         .spawn(NodeBundle {
           style: Style {
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Center,
+            flex_direction: FlexDirection::Row,
+            justify_content: JustifyContent::Start,
             ..default()
           },
-          background_color: Color::CRIMSON.into(),
           ..default()
         })
         .with_children(|parent| {
           // Display the game name
           parent.spawn(
             TextBundle::from_section(
-              "Bevy Game Jam #3",
+              "Name TBD",
               TextStyle {
                 font: font.clone(),
                 font_size: 80.0,
@@ -157,7 +185,17 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
               ..default()
             }),
           );
-
+        });
+      parent
+        .spawn(NodeBundle {
+          style: Style {
+            flex_direction: FlexDirection::Row,
+            justify_content: JustifyContent::End,
+            ..default()
+          },
+          ..default()
+        })
+        .with_children(|parent| {
           parent
             .spawn((
               ButtonBundle {
@@ -197,4 +235,38 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             });
         });
     });
+}
+
+fn rotate_cam(time: Res<Time>, mut query: Query<&mut Transform, With<Camera>>) {
+  for mut transform in &mut query {
+    transform.rotate_around(
+      Vec3::ZERO,
+      Quat::from_axis_angle(Vec3::Y, 0.55 * time.delta_seconds()),
+    );
+  }
+}
+
+#[derive(Component)]
+struct Inserted;
+
+fn mod_scene(
+  mut commands: Commands,
+  qry: Query<(Entity, &Handle<StandardMaterial>, &Name), Without<Inserted>>,
+  mut toon_materials: ResMut<Assets<ToonMaterial>>,
+  std_materials: Res<Assets<StandardMaterial>>,
+) {
+  for (entity, mat_handle, name) in qry.iter() {
+    let old_mat = std_materials.get(mat_handle).unwrap();
+
+    let mat = toon_materials.add(ToonMaterial {
+      color: old_mat.base_color,
+      color_texture: old_mat.base_color_texture.clone(),
+      alpha_mode: AlphaMode::Opaque,
+    });
+    commands
+      .entity(entity)
+      .remove::<Handle<StandardMaterial>>()
+      .insert(mat)
+      .insert(Inserted);
+  }
 }

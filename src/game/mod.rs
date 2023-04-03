@@ -71,6 +71,11 @@ fn create_new_game(
         order: 0,
         ..default()
       },
+      projection: OrthographicProjection {
+        scale: 0.1,
+        ..default()
+      }
+      .into(),
       ..default()
     },
     DepthPrepass,

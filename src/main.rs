@@ -2,10 +2,10 @@ use bevy::prelude::*;
 use game::GameExtensions;
 use menu::MenuExtensions;
 use splash::SplashExtensions;
-use utils::vfx::VfxPlugin;
+use utils::{vfx::VfxPlugin, game_time::GameTimePlugin};
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-enum GameState {
+enum AppState {
   #[default]
   Splash,
   Menu,
@@ -22,10 +22,11 @@ fn main() {
       watch_for_changes: true,
       ..default()
     }))
-    .add_state::<GameState>()
+    .add_state::<AppState>()
     .add_plugin(VfxPlugin)
-    .add_splash_screen(GameState::Splash, GameState::Menu)
-    .add_main_menu(GameState::Menu, GameState::Game)
-    .jam(GameState::Game, GameState::Menu)
+    .add_plugin(GameTimePlugin)
+    .add_splash_screen(AppState::Splash, AppState::Menu)
+    .add_main_menu(AppState::Menu, AppState::Game)
+    .jam(AppState::Game, AppState::Menu)
     .run();
 }

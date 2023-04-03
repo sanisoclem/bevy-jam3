@@ -31,7 +31,6 @@ impl MenuExtensions for App {
         main_menu_setup.in_schedule(OnEnter(MenuState::Main)),
         despawn_screen::<OnMainMenuScreen>.in_schedule(OnExit(MenuState::Main)),
         rotate_cam.in_set(OnUpdate(show_on_state.clone())),
-        mod_scene.in_set(OnUpdate(show_on_state.clone())),
       ))
       .add_systems((menu_action::<T>, button_system).in_set(OnUpdate(show_on_state.clone())))
   }
@@ -251,31 +250,5 @@ fn rotate_cam(time: Res<Time>, mut query: Query<&mut Transform, With<Camera>>) {
       Vec3::ZERO,
       Quat::from_axis_angle(Vec3::Y, 0.55 * time.delta_seconds()),
     );
-  }
-}
-
-#[derive(Component)]
-struct Inserted;
-
-fn mod_scene(
-  mut commands: Commands,
-  qry: Query<(Entity, &Handle<StandardMaterial>, &Name), Without<Inserted>>,
-  mut toon_materials: ResMut<Assets<ToonMaterial>>,
-  std_materials: Res<Assets<StandardMaterial>>,
-) {
-  for (entity, mat_handle, name) in qry.iter() {
-    let old_mat = std_materials.get(mat_handle).unwrap();
-    info!("patching {}", name);
-
-    let mat = toon_materials.add(ToonMaterial {
-      color: old_mat.base_color,
-      color_texture: old_mat.base_color_texture.clone(),
-      alpha_mode: AlphaMode::Opaque,
-    });
-    commands
-      .entity(entity)
-      .remove::<Handle<StandardMaterial>>()
-      .insert(mat)
-      .insert(Inserted);
   }
 }

@@ -88,7 +88,7 @@ fn handle_control_cmd(
             // todo: don't update translation directly,
 
             player_transform.translation =
-              player_transform.translation + (*dir * 5.) * time.delta_seconds();
+              player_transform.translation + (*dir * 20.) * time.delta_seconds();
           }
           _ => {
             warn!("unsupported player cmd {:?}", evt);
@@ -102,11 +102,14 @@ fn handle_control_cmd(
 fn read_input(keyboard_input: Res<Input<KeyCode>>, mut evts: EventWriter<PlayerControlCommand>) {
   if keyboard_input.pressed(KeyCode::W) {
     evts.send(PlayerControlCommand::Move(Vec3::Z));
-  } else if keyboard_input.pressed(KeyCode::A) {
+  }
+  if keyboard_input.pressed(KeyCode::A) {
     evts.send(PlayerControlCommand::Move(Vec3::X));
-  } else if keyboard_input.pressed(KeyCode::S) {
+  }
+  if keyboard_input.pressed(KeyCode::S) {
     evts.send(PlayerControlCommand::Move(Vec3::NEG_Z));
-  } else if keyboard_input.pressed(KeyCode::D) {
+  }
+  if keyboard_input.pressed(KeyCode::D) {
     evts.send(PlayerControlCommand::Move(Vec3::NEG_X));
   }
 }

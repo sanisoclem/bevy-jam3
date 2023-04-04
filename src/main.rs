@@ -6,9 +6,9 @@ use utils::{vfx::VfxPlugin, game_time::GameTimePlugin};
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 enum AppState {
-  #[default]
   Splash,
   Menu,
+  #[default]
   Game,
 }
 

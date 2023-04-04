@@ -84,7 +84,7 @@ fn create_new_game(
     NormalPrepass,
     PostProcessSettings::default(),
     PidCamera { ..default() },
-    RaycastSource::<player::CrosshairRaycastSet>::new(),
+    RaycastSource::<player::crosshair::CrosshairRaycastSet>::new(),
   ));
 
   // temp so we can see movement
@@ -98,8 +98,7 @@ fn create_new_game(
       }),
       transform: Transform::from_xyz(0., -10., 0.),
       ..default()
-    })
-    .insert(RaycastMesh::<player::CrosshairRaycastSet>::default());
+    });
 
   cmd.spawn(Cubemap {
     image: asset_server.load("skybox/cubemap.png"),

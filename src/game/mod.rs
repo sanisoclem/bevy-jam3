@@ -2,9 +2,10 @@ use bevy::{
   core_pipeline::prepass::{DepthPrepass, NormalPrepass},
   prelude::*,
 };
+use bevy_mod_raycast::{RaycastMesh, RaycastSource};
 use level::{LevelExtensions, LevelSettings};
 use loading::LoadingExtensions;
-use utils::vfx::{PostProcessSettings, ToonMaterial};
+use utils::vfx::{Cubemap, PostProcessSettings, ToonMaterial};
 
 use self::{camera::PidCamera, player::PlayerExtensions};
 
@@ -53,6 +54,7 @@ fn create_new_game(
   mut game_state: ResMut<NextState<GameState>>,
   mut meshes: ResMut<Assets<Mesh>>,
   mut materials: ResMut<Assets<ToonMaterial>>,
+  asset_server: Res<AssetServer>,
 ) {
   // set sate to loading
   game_state.set(GameState::Loading);
@@ -71,28 +73,35 @@ fn create_new_game(
         order: 0,
         ..default()
       },
-      projection: OrthographicProjection {
-        scale: 0.1,
-        ..default()
-      }
-      .into(),
+      // projection: OrthographicProjection {
+      //   scale: 0.1,
+      //   ..default()
+      // }
+      // .into(),
       ..default()
     },
     DepthPrepass,
     NormalPrepass,
     PostProcessSettings::default(),
     PidCamera { ..default() },
+    RaycastSource::<player::CrosshairRaycastSet>::new(),
   ));
 
   // temp so we can see movement
-  cmd.spawn(MaterialMeshBundle {
-    mesh: meshes.add(shape::Plane::from_size(50.0).into()),
-    material: materials.add(ToonMaterial {
-      color: Color::rgb(0.3, 0.5, 0.3).into(),
-      color_texture: None,
-      alpha_mode: AlphaMode::Opaque,
-    }),
-    transform: Transform::from_xyz(0., -10., 0.),
-    ..default()
+  cmd
+    .spawn(MaterialMeshBundle {
+      mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+      material: materials.add(ToonMaterial {
+        color: Color::rgb(0.3, 0.5, 0.3).into(),
+        color_texture: None,
+        alpha_mode: AlphaMode::Opaque,
+      }),
+      transform: Transform::from_xyz(0., -10., 0.),
+      ..default()
+    })
+    .insert(RaycastMesh::<player::CrosshairRaycastSet>::default());
+
+  cmd.spawn(Cubemap {
+    image: asset_server.load("skybox/cubemap.png"),
   });
 }

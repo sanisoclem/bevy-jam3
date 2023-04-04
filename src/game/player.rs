@@ -1,4 +1,7 @@
 use bevy::{input::mouse::MouseMotion, prelude::*, window::CursorGrabMode};
+use bevy_mod_raycast::{
+  DefaultRaycastingPlugin, RaycastMesh, RaycastMethod, RaycastSource, RaycastSystem,
+};
 
 use super::camera::PidCameraTarget; // TODO: make player extensible
 
@@ -16,13 +19,24 @@ impl PlayerExtensions for App {
       .add_event::<PlayerControlCommand>()
       .init_resource::<PlayerState>()
       .insert_resource(settings.clone())
+      .add_plugin(DefaultRaycastingPlugin::<CrosshairRaycastSet>::default())
+      .add_system(
+        move_crosshair
+          .in_base_set(CoreSet::First)
+          //.after(update_crosshair)
+          .before(RaycastSystem::BuildRays::<CrosshairRaycastSet>),
+      )
       .add_system(handle_cmd)
       .add_system(read_input)
       .add_system(handle_control_cmd.after(read_input))
       .add_system(update_crosshair.after(read_input))
-      .add_system(move_crosshair.after(update_crosshair))
+      .add_system(update_crosshair_world_pos)
+    //.add_system(move_crosshair.after(update_crosshair))
   }
 }
+
+#[derive(Clone, Reflect)]
+pub struct CrosshairRaycastSet;
 
 #[derive(Debug)]
 pub enum PlayerCommand {
@@ -45,6 +59,8 @@ struct PlayerComponent;
 #[derive(Component, Default)]
 struct Crosshair {
   active: bool,
+  last_pos: Option<Vec2>,
+  world_pos: Option<Vec3>,
 }
 
 #[derive(Resource, Default)]
@@ -56,7 +72,9 @@ fn handle_cmd(
   mut cmd: Commands,
   mut events: EventReader<PlayerCommand>,
   mut player_state: ResMut<PlayerState>,
+  mut meshes: ResMut<Assets<Mesh>>,
   asset_server: Res<AssetServer>,
+  mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
   for evt in events.iter() {
     match (evt, player_state.current) {
@@ -72,6 +90,7 @@ fn handle_cmd(
             PidCameraTarget,
           ))
           .id();
+
         cmd.spawn((
           ImageBundle {
             style: Style {
@@ -84,7 +103,19 @@ fn handle_cmd(
             visibility: Visibility::Hidden,
             ..default()
           },
-          Crosshair { active: true },
+          Crosshair {
+            active: true,
+            ..default()
+          },
+        ));
+
+        cmd.spawn((
+          PbrBundle {
+            mesh: meshes.add(Mesh::try_from(shape::Plane::from_size(100000.)).unwrap()),
+            material: materials.add(Color::rgba(1.0, 1.0, 1.0, 0.0).into()),
+            ..Default::default()
+          },
+          RaycastMesh::<CrosshairRaycastSet>::default(),
         ));
         player_state.current = Some(player);
       }
@@ -152,18 +183,18 @@ fn read_input(
 }
 
 fn update_crosshair(
-  mut qry_crosshair: Query<(&Crosshair, &mut Style, &mut Visibility), Changed<Crosshair>>,
+  mut qry_crosshair: Query<(&mut Crosshair, &mut Style, &mut Visibility), Changed<Crosshair>>,
   mut windows: Query<&mut Window>,
 ) {
   let mut window = windows.single_mut();
 
-  if let Ok((c, mut style, mut v)) = qry_crosshair.get_single_mut() {
+  if let Ok((mut c, mut style, mut v)) = qry_crosshair.get_single_mut() {
     if c.active {
       window.cursor.visible = false;
       window.cursor.grab_mode = CursorGrabMode::Locked;
       *v = Visibility::Visible;
-      
-      if style.position.left == Val::Undefined || style.position.bottom == Val::Undefined {
+
+      if c.last_pos == None {
         let cursor_pos = if let Some(cp) = window.cursor_position() {
           cp
         } else {
@@ -172,6 +203,7 @@ fn update_crosshair(
             window.resolution.height() / 2.0,
           )
         };
+        c.last_pos = Some(cursor_pos);
 
         let w = if let Val::Px(r) = style.size.width {
           r / 2.0
@@ -201,27 +233,56 @@ fn update_crosshair(
 
 fn move_crosshair(
   mut mouse_motion_events: EventReader<MouseMotion>,
-  mut qry_crosshair: Query<(&Crosshair, &mut Style)>,
+  mut qry_crosshair: Query<(&mut Crosshair, &mut Style)>,
+  mut qry_raycast: Query<&mut RaycastSource<CrosshairRaycastSet>>,
 ) {
   for event in mouse_motion_events.iter() {
-    if let Ok((c, mut style)) = qry_crosshair.get_single_mut() {
+    if let Ok((mut c, mut style)) = qry_crosshair.get_single_mut() {
       if !c.active {
         break;
       }
 
       // TODO: send player commend to orient ship
-      match (style.position.left, style.position.bottom) {
-        (Val::Px(l), Val::Px(b)) => {
+      match (c.last_pos, style.position.left, style.position.bottom) {
+        (Some(last_pos), Val::Px(l), Val::Px(b)) => {
+          let new_pos = Vec2::new(last_pos.x + event.delta.x, last_pos.y - event.delta.y);
+          c.last_pos = Some(new_pos);
           style.position = UiRect::new(
             Val::Px(l + event.delta.x),
             Val::Undefined,
             Val::Undefined,
             Val::Px(b - event.delta.y),
           );
+
+          for mut pick_source in &mut qry_raycast {
+            pick_source.cast_method = RaycastMethod::Screenspace(new_pos);
+          }
         }
         _ => {
           warn!("cannot update crosshair pos");
         }
+      }
+    }
+  }
+}
+
+fn update_crosshair_world_pos(
+  mut crosshair: Query<&mut Crosshair>,
+  mut player: Query<&mut Transform, With<PlayerComponent>>,
+  to: Query<&RaycastSource<CrosshairRaycastSet>>
+) {
+  if let Ok(raycast_source) = to.get_single() {
+    if let Some(top_intersection) = raycast_source.get_nearest_intersection() {
+      let mut new_pos = top_intersection.1.position();
+      new_pos.y = 0.0;
+
+      if let Ok(mut c) = crosshair.get_single_mut() {
+        c.world_pos = Some(new_pos)
+      }
+      if let Ok(mut p) = player.get_single_mut() {
+        let o = new_pos - p.translation;
+        let t = p.translation - o;
+        p.look_at(t, Vec3::Y);
       }
     }
   }

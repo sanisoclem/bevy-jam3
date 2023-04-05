@@ -1,8 +1,11 @@
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::{ExternalImpulse, Velocity};
 
 #[derive(Component, Default)]
 pub struct PidCamera {
   pub pid: Vec3,
+  pub integrated_error: Vec3,
+  pub last_error: Vec3,
   pub offset: Option<Vec3>,
 }
 
@@ -18,9 +21,13 @@ impl Plugin for PidCameraPlugin {
 
 fn follow_target(
   qry_transform: Query<&Transform, (With<PidCameraTarget>, Without<Camera>)>,
-  mut qry_camera: Query<(&mut Transform, &mut PidCamera), (Without<PidCameraTarget>, With<Camera>)>,
+  mut qry_camera: Query<
+    (&mut Transform, &mut Velocity, &mut PidCamera),
+    (Without<PidCameraTarget>, With<Camera>),
+  >,
+  time: Res<Time>,
 ) {
-  for (mut cam_transform, mut pid) in qry_camera.iter_mut() {
+  for (mut cam_transform, mut velocity, mut pid) in qry_camera.iter_mut() {
     if let Ok(target_transform) = qry_transform.get_single() {
       // TODO: interpolate
 
@@ -49,9 +56,19 @@ fn follow_target(
         o
       };
 
-      if (target_transform.translation + offset - cam_transform.translation).length() > 0.001 {
-        cam_transform.translation = target_transform.translation - offset;
-      }
+      let error = target_transform.translation - offset - cam_transform.translation;
+
+      pid.integrated_error += error * time.delta_seconds();
+      pid.last_error = error * time.delta_seconds();
+
+      let p = error * pid.pid.x;
+      let i =
+        (pid.integrated_error * pid.pid.y).clamp(Vec3::new(-100., -100., -100.), Vec3::new(100., 100., 100.));
+      let d = ((error - pid.last_error) / time.delta_seconds()) * pid.pid.z;
+
+      velocity.linvel = p + i + d;
+
+      pid.last_error = error;
     }
   }
 }

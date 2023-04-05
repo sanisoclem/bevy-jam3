@@ -2,7 +2,8 @@ use bevy::{
   core_pipeline::prepass::{DepthPrepass, NormalPrepass},
   prelude::*,
 };
-use bevy_mod_raycast::{RaycastMesh, RaycastSource};
+use bevy_mod_raycast::RaycastSource;
+use bevy_rapier3d::prelude::*;
 use level::{LevelExtensions, LevelSettings};
 use loading::LoadingExtensions;
 use utils::vfx::{Cubemap, PostProcessSettings, ToonMaterial};
@@ -66,39 +67,54 @@ fn create_new_game(
   player_cmd.send(player::PlayerCommand::Spawn);
 
   // spawn the camera
-  cmd.spawn((
-    Camera3dBundle {
-      transform: Transform::from_xyz(0.0, 100.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
-      camera: Camera {
-        order: 0,
+  cmd
+    .spawn((
+      Camera3dBundle {
+        transform: Transform::from_xyz(0.0, 100.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
+        camera: Camera {
+          order: 0,
+          ..default()
+        },
+        // projection: OrthographicProjection {
+        //   scale: 0.1,
+        //   ..default()
+        // }
+        // .into(),
         ..default()
       },
-      // projection: OrthographicProjection {
-      //   scale: 0.1,
-      //   ..default()
-      // }
-      // .into(),
+      DepthPrepass,
+      NormalPrepass,
+      PostProcessSettings::default(),
+      RaycastSource::<player::crosshair::CrosshairRaycastSet>::new(),
+    ))
+    .insert(PidCamera {
+      pid: Vec3::new(10.0, 0.0, 0.0),
       ..default()
-    },
-    DepthPrepass,
-    NormalPrepass,
-    PostProcessSettings::default(),
-    PidCamera { ..default() },
-    RaycastSource::<player::crosshair::CrosshairRaycastSet>::new(),
-  ));
+    })
+    .insert(GravityScale(0.0))
+    .insert(RigidBody::KinematicVelocityBased)
+    .insert(Collider::ball(5.0))
+    .insert(LockedAxes::TRANSLATION_LOCKED_Y | LockedAxes::ROTATION_LOCKED)
+    .insert(Damping {
+      linear_damping: 0.5,
+      angular_damping: 0.0,
+    })
+    .insert(Velocity {
+      linvel: Vec3::new(0.0, 0.0, 0.0),
+      angvel: Vec3::new(0.0, 0.0, 0.0),
+    });
 
   // temp so we can see movement
-  cmd
-    .spawn(MaterialMeshBundle {
-      mesh: meshes.add(shape::Plane::from_size(50.0).into()),
-      material: materials.add(ToonMaterial {
-        color: Color::rgb(0.3, 0.5, 0.3).into(),
-        color_texture: None,
-        alpha_mode: AlphaMode::Opaque,
-      }),
-      transform: Transform::from_xyz(0., -10., 0.),
-      ..default()
-    });
+  cmd.spawn(MaterialMeshBundle {
+    mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+    material: materials.add(ToonMaterial {
+      color: Color::rgb(0.3, 0.5, 0.3).into(),
+      color_texture: None,
+      alpha_mode: AlphaMode::Opaque,
+    }),
+    transform: Transform::from_xyz(0., -10., 0.),
+    ..default()
+  });
 
   cmd.spawn(Cubemap {
     image: asset_server.load("skybox/cubemap.png"),

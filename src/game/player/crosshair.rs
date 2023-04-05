@@ -65,7 +65,6 @@ fn update_crosshair_visibility(
             window.resolution.height() / 2.0,
           )
         };
-        c.last_pos = Some(cursor_pos);
 
         let w = if let Val::Px(r) = style.size.width {
           r / 2.0
@@ -78,6 +77,7 @@ fn update_crosshair_visibility(
           0.0
         };
 
+        c.last_pos = Some(cursor_pos);
         style.position = UiRect::new(
           Val::Px(cursor_pos.x - w),
           Val::Undefined,
@@ -108,18 +108,18 @@ fn update_crosshair_screen_pos(
       }
 
       // TODO: send player commend to orient ship
-      match (c.last_pos, style.position.left, style.position.bottom) {
-        (Some(last_pos), Val::Px(l), Val::Px(b)) => {
+      match (c.last_pos, style.size.width, style.size.height) {
+        (Some(last_pos), Val::Px(w), Val::Px(h)) => {
           let new_pos = Vec2::new(last_pos.x + event.delta.x, last_pos.y - event.delta.y).clamp(
-            Vec2::default(),
+            Vec2::new(0., 0.),
             Vec2::new(window.resolution.width(), window.resolution.height()),
           );
           c.last_pos = Some(new_pos);
           style.position = UiRect::new(
-            Val::Px(l + event.delta.x),
+            Val::Px(new_pos.x - (w / 2.0)),
             Val::Undefined,
             Val::Undefined,
-            Val::Px(b - event.delta.y),
+            Val::Px(new_pos.y - (h / 2.0)),
           );
 
           for mut pick_source in &mut qry_raycast {

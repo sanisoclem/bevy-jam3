@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use bevy_hanabi::HanabiPlugin;
+use bevy_rapier3d::prelude::*;
 use game::GameExtensions;
 use menu::MenuExtensions;
 use splash::SplashExtensions;
@@ -7,8 +9,8 @@ use utils::{vfx::VfxPlugin, game_time::GameTimePlugin};
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 enum AppState {
   Splash,
-  Menu,
   #[default]
+  Menu,
   Game,
 }
 
@@ -25,6 +27,9 @@ fn main() {
     .add_state::<AppState>()
     .add_plugin(VfxPlugin)
     .add_plugin(GameTimePlugin)
+    .add_plugin(HanabiPlugin)
+    .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
+    .add_plugin(RapierDebugRenderPlugin::default())    
     .add_splash_screen(AppState::Splash, AppState::Menu)
     .add_main_menu(AppState::Menu, AppState::Game)
     .jam(AppState::Game, AppState::Menu)

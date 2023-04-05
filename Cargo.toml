@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 bevy = { workspace = true }
+bevy_rapier3d = { workspace = true, features = ["debug-render-3d"] }
+bevy_hanabi = "0.6"
 bevy_mod_raycast = "0.8.0"
 utils = { path = "crates/utils", version = "0.1.0" }
 smooth-bevy-cameras = "0.8.0"
@@ -14,3 +16,4 @@ members = ["crates/*"]
 
 [workspace.dependencies]
 bevy = "0.10"
+bevy_rapier3d = { version = "0.21", features = ["debug-render-3d"] }

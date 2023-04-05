@@ -175,27 +175,27 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let frag_coord = in.position.xy;
 
     let color = textureSample(screen_texture, texture_sampler, in.uv);
-
-    if config.enabled == 1u {
-        let depth = prepass_depth(frag_coord);
-        let edge_depth = detect_edge_depth(frag_coord);
-        let edge_normal = detect_edge_normal(frag_coord);
-        let edge_color = detect_edge_color(in.uv, resolution);
-        var edge = max(edge_depth, edge_normal);
-
-        // don't detect color edges for faraway objects
-        if depth > 0.0001  {
-            edge = max(edge, edge_color);
-        }
-
-        if config.debug == 1u {
-            return vec4(edge_depth, edge_normal, edge_color, 1.0);
-        }
-
-        if edge > 0.01 {
-            return config.edge_color;
-        }
-    }
-
     return color;
+    // if config.enabled == 1u {
+    //     let depth = prepass_depth(frag_coord);
+    //     let edge_depth = detect_edge_depth(frag_coord);
+    //     let edge_normal = detect_edge_normal(frag_coord);
+    //     let edge_color = detect_edge_color(in.uv, resolution);
+    //     var edge = max(edge_depth, edge_normal);
+
+    //     // don't detect color edges for faraway objects
+    //     if depth > 0.0001  {
+    //         edge = max(edge, edge_color);
+    //     }
+
+    //     if config.debug == 1u {
+    //         return vec4(edge_depth, edge_normal, edge_color, 1.0);
+    //     }
+
+    //     if edge > 0.01 {
+    //         return config.edge_color;
+    //     }
+    // }
+
+    // return color;
 }

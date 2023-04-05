@@ -10,6 +10,7 @@ bevy_hanabi = "0.6"
 bevy_mod_raycast = "0.8.0"
 utils = { path = "crates/utils", version = "0.1.0" }
 smooth-bevy-cameras = "0.8.0"
+bevy-inspector-egui = "0.18"
 
 [workspace]
 members = ["crates/*"]

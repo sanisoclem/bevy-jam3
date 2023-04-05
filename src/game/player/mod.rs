@@ -1,3 +1,4 @@
+use bevy::ecs::system::WithEntity;
 use bevy::{math::Vec3Swizzles, prelude::*};
 use bevy_hanabi::prelude::*;
 use bevy_hanabi::EffectAsset;
@@ -26,6 +27,7 @@ impl PlayerExtensions for App {
       .add_system(handle_cmd)
       .add_system(read_input)
       .add_system(handle_control_cmd.after(read_input))
+      .add_system(show_cotrails.after(handle_control_cmd))
   }
 }
 
@@ -67,43 +69,65 @@ fn handle_cmd(
     match (evt, player_state.current) {
       (PlayerCommand::Spawn, None) => {
         let crosshair = asset_server.load("crosshair.png");
-        let mut gradient = Gradient::new();
-        gradient.add_key(0.0, Vec4::new(1., 0., 0., 1.)); // Red
-        gradient.add_key(1.0, Vec4::ZERO); // Transparent black
+
+        let mut color_gradient1 = Gradient::new();
+        color_gradient1.add_key(0.0, Vec4::new(0.0, 0.0, 8.0, 1.0));
+        color_gradient1.add_key(0.1, Vec4::new(8.0, 8.0, 8.0, 1.0));
+        color_gradient1.add_key(0.7, Vec4::new(8.0, 8.0, 0.0, 1.0));
+        color_gradient1.add_key(0.9, Vec4::new(8.0, 0.0, 0.0, 1.0));
+        color_gradient1.add_key(1.0, Vec4::new(8.0, 0.0, 0.0, 0.0));
+
+        let mut size_gradient1 = Gradient::new();
+        size_gradient1.add_key(0.0, Vec2::splat(0.8));
+        size_gradient1.add_key(0.3, Vec2::splat(0.5));
+        size_gradient1.add_key(1.0, Vec2::splat(0.2));
 
         // Create the effect asset
+        let spawner = Spawner::rate(Value::Uniform((200., 300.)));
         let effect = effects.add(
           EffectAsset {
             name: "cotrails".to_string(),
             // Maximum number of particles alive at a time
             capacity: 32768,
             // Spawn at a rate of 5 particles per second
-            spawner: Spawner::rate(25.0.into()),
+            spawner,
             ..Default::default()
           }
           // On spawn, randomly initialize the position of the particle
           // to be over the surface of a sphere of radius 2 units.
-          .init(InitPositionSphereModifier {
-            radius: 1.0,
-            center: Vec3::ZERO, //(0.,0.,-3.),
+          .init(InitPositionCone3dModifier {
+            base_radius: 0.,
+            top_radius: 2.,
+            height: 10.,
             dimension: ShapeDimension::Volume,
           })
-          .init(InitVelocityTangentModifier {
-            origin: Vec3::Y,
-            axis: Vec3::X,
-            speed: 6.0.into(),
+          .init(InitVelocitySphereModifier {
+            center: Vec3::ZERO,
+            speed: 50.0.into(),
           })
           // Also initialize the total lifetime of the particle, that is
           // the time for which it's simulated and rendered. This modifier
           // is mandatory, otherwise the particles won't show up.
           .init(InitLifetimeModifier {
-            lifetime: 2_f32.into(),
+            // Give a bit of variation by randomizing the lifetime per particle
+            lifetime: Value::Uniform((0.8, 1.2)),
           })
+          .init(InitAgeModifier {
+            // Give a bit of variation by randomizing the age per particle. This will control the
+            // starting color and starting size of particles.
+            age: Value::Uniform((0.0, 0.2)),
+          })
+          .update(LinearDragModifier { drag: 5. })
           .render(BillboardModifier {})
           // Render the particles with a color gradient over their
           // lifetime. This maps the gradient key 0 to the particle spawn
           // time, and the gradient key 1 to the particle death (here, 10s).
-          .render(ColorOverLifetimeModifier { gradient }),
+          .render(ColorOverLifetimeModifier {
+            gradient: color_gradient1,
+          })
+          .render(SizeOverLifetimeModifier {
+            gradient: size_gradient1,
+          }),
         );
 
         let player = cmd
@@ -131,7 +155,18 @@ fn handle_cmd(
             impulse: Vec3::new(0.0, 0.0, 0.0),
             torque_impulse: Vec3::new(0.0, 0.0, 0.0),
           })
-          .insert(ParticleEffect::new(effect))
+          .with_children(|b| {
+            b.spawn((
+              Name::new("emit:cotrails"),
+              ParticleEffectBundle {
+                effect: ParticleEffect::new(effect),
+                transform: Transform::from_translation(Vec3::new(00., 0., 0.0))
+                  .with_rotation(Quat::from_rotation_x(-1.)),
+                ..Default::default()
+              }
+              .with_spawner(spawner),
+            ));
+          })
           .id();
 
         cmd.spawn((
@@ -184,7 +219,7 @@ fn handle_control_cmd(
             // todo: create smoothing fn for impulses
             // let max_linear_impulse = 2000.0;
             let max_angular_impulse = 1000.0;
-            let multiplier = 1000.0;
+            let multiplier = 2000.0;
 
             let dir2d = dir.xz().normalize();
             let orientation = (player_transform.rotation * Vec3::Z).normalize();
@@ -246,6 +281,22 @@ fn read_input(
   for c in qry_crosshair.iter() {
     if let Some(word_pos) = c.world_pos {
       evts.send(PlayerControlCommand::Aim(word_pos));
+    }
+  }
+}
+
+fn show_cotrails(
+  qry: Query<(&ExternalImpulse, &Children)>,
+  mut qry_effect: Query<&mut ParticleEffect>,
+) {
+  for (impulse, children) in qry.iter() {
+    for child in children {
+      if let Ok(mut effect) = qry_effect.get_mut(*child) {
+        effect
+          .maybe_spawner()
+          .unwrap()
+          .set_active(impulse.impulse.length() > 0.1);
+      }
     }
   }
 }

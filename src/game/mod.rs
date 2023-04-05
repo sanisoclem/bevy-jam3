@@ -1,5 +1,5 @@
 use bevy::{
-  core_pipeline::prepass::{DepthPrepass, NormalPrepass},
+  core_pipeline::{prepass::{DepthPrepass, NormalPrepass}, bloom::BloomSettings},
   prelude::*,
 };
 use bevy_mod_raycast::RaycastSource;
@@ -72,6 +72,7 @@ fn create_new_game(
       Camera3dBundle {
         transform: Transform::from_xyz(0.0, 100.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
         camera: Camera {
+          hdr: true, // 1. HDR is required for bloom
           order: 0,
           ..default()
         },
@@ -102,7 +103,8 @@ fn create_new_game(
     .insert(Velocity {
       linvel: Vec3::new(0.0, 0.0, 0.0),
       angvel: Vec3::new(0.0, 0.0, 0.0),
-    });
+    })
+    .insert(BloomSettings::default());
 
   // temp so we can see movement
   cmd.spawn(MaterialMeshBundle {

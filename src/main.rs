@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_hanabi::HanabiPlugin;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use game::GameExtensions;
 use menu::MenuExtensions;
@@ -28,6 +29,7 @@ fn main() {
     .add_plugin(VfxPlugin)
     .add_plugin(GameTimePlugin)
     .add_plugin(HanabiPlugin)
+    .add_plugin(WorldInspectorPlugin::default())
     .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
     .add_plugin(RapierDebugRenderPlugin::default())    
     .add_splash_screen(AppState::Splash, AppState::Menu)
